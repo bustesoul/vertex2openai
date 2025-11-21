@@ -437,11 +437,35 @@ def deobfuscate_text(text: str) -> str:
     text = text.replace("```", placeholder).replace("``", "").replace("♩", "").replace("`♡`", "").replace("♡", "").replace("` `", "").replace("`", "").replace(placeholder, "```")
     return text
 
-def _convert_image_to_markdown(image_data: bytes, mime_type: str) -> str:
+def _convert_image_to_markdown(image_data, mime_type: str) -> str:
     """Convert image data to markdown format with base64 encoding."""
     try:
-        # Convert bytes to base64 string
-        b64_data = base64.b64encode(image_data).decode('utf-8')
+        if not image_data:
+            return ""
+
+        if not mime_type:
+            mime_type = "image/png"
+
+        b64_data = ""
+        if isinstance(image_data, str):
+            # If it's already a string, assume it's already base64 encoded
+            b64_data = image_data
+        elif isinstance(image_data, bytes):
+            # Check if it's already base64 encoded bytes
+            # Binary images usually fail utf-8 decode
+            try:
+                decoded = image_data.decode('utf-8')
+                # Check if it looks like base64 (alphanumeric + +/=)
+                # Remove newlines just in case
+                clean_decoded = decoded.replace('\n', '').replace('\r', '').strip()
+                if len(clean_decoded) > 0 and re.match(r'^[A-Za-z0-9+/=]+$', clean_decoded):
+                    b64_data = clean_decoded
+                else:
+                    b64_data = base64.b64encode(image_data).decode('utf-8')
+            except UnicodeDecodeError:
+                # It's binary data, encode it
+                b64_data = base64.b64encode(image_data).decode('utf-8')
+
         # Create markdown image with data URL
         data_url = f"data:{mime_type};base64,{b64_data}"
         # Return markdown formatted image
